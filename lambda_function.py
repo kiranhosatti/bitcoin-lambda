@@ -2,51 +2,87 @@ import json
 import boto3
 import requests
 import os
+import csv
 from datetime import datetime
+from io import StringIO
 
 # Initialize S3 client
 s3 = boto3.client("s3")
-BUCKET_NAME = os.environ.get("BUCKET_NAME")  # Your S3 bucket name
-
-# List of cryptocurrencies to fetch
-CRYPTOCURRENCIES = ["bitcoin", "ethereum", "dogecoin"]
-CURRENCY = "usd"
+BUCKET_NAME = os.environ.get("BUCKET_NAME")  # From Lambda environment
 
 def lambda_handler(event, context):
     try:
-        # Build API URL
-        ids = ",".join(CRYPTOCURRENCIES)
-        url = f"https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies={CURRENCY}"
-        
-        # Fetch prices from CoinGecko
+        print("Lambda started")
+
+        # GitHub issues API URL
+        url = "https://api.github.com/repos/apache/airflow/issues"
+        print(f"Fetching data from GitHub: {url}")
+
         response = requests.get(url)
         data = response.json()
-        
-        # Generate folder structure based on date
+        print(f"Data fetched: {len(data)} issues")
+
+        # Extract only labels
+        all_labels = []
+        for issue in data:
+            for label in issue.get("labels", []):
+                label_info = {
+                    "label_id": label["id"],
+                    "lable_node_id": label["node_id"],
+                    "label_url": label["url"],
+                    "label_name": label["name"],
+                    "label_color": label["color"],
+                    "label_default": label["default"],
+                    "label_description": label.get("description", "")
+                }
+                all_labels.append(label_info)
+
+        print(f"Total labels extracted: {len(all_labels)}")
+        print("Sample labels:", all_labels[:5])
+
+        # Generate S3 folder & filenames
         now = datetime.utcnow()
         folder = now.strftime("%Y/%m/%d")
-        filename = f"{now.strftime('%H%M%S')}.json"
-        key = f"cryptos/{folder}/{filename}"  # e.g., cryptos/2026/02/22/072204.json
+        json_filename = f"{now.strftime('%H%M%S')}_labels.json"
+        csv_filename = f"{now.strftime('%H%M%S')}_labels.csv"
+        json_key = f"labels/{folder}/{json_filename}"
+        csv_key = f"labels/{folder}/{csv_filename}"
 
         # Upload JSON to S3
         s3.put_object(
             Bucket=BUCKET_NAME,
-            Key=key,
-            Body=json.dumps(data),
+            Key=json_key,
+            Body=json.dumps(all_labels, indent=2),
             ContentType="application/json"
         )
+        print(f"JSON labels stored in S3: {json_key}")
+
+        # Convert to CSV and upload
+        if all_labels:
+            csv_buffer = StringIO()
+            writer = csv.DictWriter(csv_buffer, fieldnames=all_labels[0].keys())
+            writer.writeheader()
+            writer.writerows(all_labels)
+            s3.put_object(
+                Bucket=BUCKET_NAME,
+                Key=csv_key,
+                Body=csv_buffer.getvalue(),
+                ContentType="text/csv"
+            )
+            print(f"CSV labels stored in S3: {csv_key}")
+        else:
+            print("No labels to store in CSV")
 
         return {
             "statusCode": 200,
             "body": json.dumps({
-                "message": "Stored successfully",
-                "file": key,
-                "data": data
+                "message": "Labels stored successfully",
+                "json_file": json_key,
+                "csv_file": csv_key,
+                "labels_count": len(all_labels)
             })
         }
 
     except Exception as e:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        print(f"Error: {e}")
+        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
