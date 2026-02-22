@@ -17,8 +17,8 @@ def lambda_handler(event, context):
         print("Lambda started")
         
         # Build CoinGecko API URL
-        ids = ",".join(CRYPTOCURRENCIES)
-        url = f"https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies={CURRENCY}"
+        id = ",".join(CRYPTOCURRENCIES)
+        url = f"https://api.github.com/repos/apache/airflow/issues"
         print(f"Fetching data from CoinGecko: {url}")
         
         response = requests.get(url)
