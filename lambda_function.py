@@ -27,11 +27,12 @@ def lambda_handler(event, context):
         for issue in data:
             for label in issue.get("labels", []):
                 label_info = {
-                    "issue_number": issue["number"],
-                    "issue_title": issue["title"],
                     "label_id": label["id"],
+                    "lable_node_id": label["node_id"],
+                    "label_url": label["url"],
                     "label_name": label["name"],
                     "label_color": label["color"],
+                    "label_default": label["default"],
                     "label_description": label.get("description", "")
                 }
                 all_labels.append(label_info)
