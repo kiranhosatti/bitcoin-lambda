@@ -3,7 +3,6 @@ import boto3
 import requests
 import os
 from datetime import datetime
-import pandas as pd
 
 # Initialize S3 client
 s3 = boto3.client("s3")
@@ -38,10 +37,9 @@ def lambda_handler(event, context):
                 }
                 all_labels.append(label_info)
 
-        # Convert labels list to DataFrame (optional, just for local debugging)
-        df_labels = pd.DataFrame(all_labels)
-        print(f"Total labels extracted: {len(df_labels)}")
-        print(df_labels.head())
+        # Debug print first 5 labels
+        print("Sample labels:", all_labels[:5])
+        print(f"Total labels extracted: {len(all_labels)}")
 
         # Generate S3 folder & filename
         now = datetime.utcnow()
