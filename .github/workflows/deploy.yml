@@ -1,0 +1,38 @@
+name: Deploy Lambda
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️ Checkout the code from GitHub
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2️ Install dependencies and package Lambda
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -t package
+          cp lambda_function.py package/
+          cd package
+          zip -r ../function.zip .
+
+      # 3️ Configure AWS credentials from GitHub Secrets
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1   # <-- Change if your Lambda is in a different region
+
+      # 4 Deploy the zipped Lambda to AWS using full ARN
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name arn:aws:lambda:us-east-1:986640827387:function:bitcoin-price-lambda \
+            --zip-file fileb://function.zip
