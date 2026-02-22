@@ -6,28 +6,32 @@ from datetime import datetime
 
 # Initialize S3 client
 s3 = boto3.client("s3")
-BUCKET_NAME = os.environ.get("BUCKET_NAME")  # Your S3 bucket name
+BUCKET_NAME = os.environ.get("BUCKET_NAME")  # ✅ Reads your bucket name from Lambda environment variable
 
-# List of cryptocurrencies to fetch
+# List of cryptocurrencies
 CRYPTOCURRENCIES = ["bitcoin", "ethereum", "dogecoin"]
 CURRENCY = "usd"
 
 def lambda_handler(event, context):
     try:
-        # Build API URL
+        print("Lambda started")
+        
+        # Build CoinGecko API URL
         ids = ",".join(CRYPTOCURRENCIES)
         url = f"https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies={CURRENCY}"
+        print(f"Fetching data from CoinGecko: {url}")
         
-        # Fetch prices from CoinGecko
         response = requests.get(url)
         data = response.json()
+        print(f"Data fetched: {data}")
         
-        # Generate folder structure based on date
+        # Generate S3 folder & filename
         now = datetime.utcnow()
         folder = now.strftime("%Y/%m/%d")
         filename = f"{now.strftime('%H%M%S')}.json"
-        key = f"cryptos/{folder}/{filename}"  # e.g., cryptos/2026/02/22/072204.json
-
+        key = f"cryptos/{folder}/{filename}"  # Example: cryptos/2026/02/22/072204.json
+        print(f"Storing file in S3: {key}")
+        
         # Upload JSON to S3
         s3.put_object(
             Bucket=BUCKET_NAME,
@@ -35,7 +39,8 @@ def lambda_handler(event, context):
             Body=json.dumps(data),
             ContentType="application/json"
         )
-
+        
+        print("Stored successfully")
         return {
             "statusCode": 200,
             "body": json.dumps({
@@ -44,9 +49,7 @@ def lambda_handler(event, context):
                 "data": data
             })
         }
-
+    
     except Exception as e:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        print(f"Error: {e}")
+        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
